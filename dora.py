@@ -3,6 +3,7 @@ import datetime
 
 # replace with your personal access token and repo information
 <<<<<<< HEAD
+<<<<<<< HEAD
 ACCESS_TOKEN = ''
 OWNER = 'ministryofjustice'
 REPO = 'modernisation-platform-environments'
@@ -11,6 +12,11 @@ ACCESS_TOKEN = 'your_token_here'
 OWNER = 'owner_name'
 REPO = 'repo_name'
 >>>>>>> 9fa47a0 (Breaking out mean time to recovery into hours and minutes.)
+=======
+ACCESS_TOKEN = ''
+OWNER = 'ministryofjustice'
+REPO = 'modernisation-platform'
+>>>>>>> 1b116fa (Optimising the script)
 
 # headers to include the access token in the request
 headers = {
@@ -19,11 +25,15 @@ headers = {
 }
 
 # endpoint for getting workflow runs on the main branch for the last 90 days
-url = f'https://api.github.com/repos/{OWNER}/{REPO}/actions/runs?branch=main&per_page=100&status=completed&event=push&timestamp=>={datetime.datetime.now()-datetime.timedelta(days=90)}'
+url = f'https://api.github.com/repos/{OWNER}/{REPO}/actions/runs?branch=main&per_page=100&status=completed&event=push'
 
-# get the workflow runs
-response = requests.get(url, headers=headers)
-runs = response.json()['workflow_runs']
+# retrieve all pages of the workflow runs
+runs = []
+while url:
+    response = requests.get(url, headers=headers)
+    page_runs = response.json()['workflow_runs']
+    runs.extend(page_runs)
+    url = response.links.get('next', {}).get('url')
 
 # sort the workflow runs by created_at in ascending order
 runs = sorted(runs, key=lambda run: datetime.datetime.fromisoformat(run['created_at'].replace('Z', '')))
@@ -51,23 +61,15 @@ for run in runs:
                 period['end'] = success_time
                 print(f"Found new success for workflow '{workflow_name}' at {success_time}")
 
+
 # calculate the time to recovery for each workflow
-workflow_recovery_times = {}
-for workflow_id, periods in workflow_periods.items():
-    for period in periods:
-        if period['end']:
-            time_to_recovery = period['end'] - period['start']
-            if workflow_id not in workflow_recovery_times:
-                workflow_recovery_times[workflow_id] = []
-            workflow_recovery_times[workflow_id].append(time_to_recovery)
+workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for period in periods if period['end']]
+                          for workflow_id, periods in workflow_periods.items()}
 
+print(workflow_recovery_times)
 # calculate the mean time to recovery across all workflows
-total_recovery_time = datetime.timedelta(0)
+total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), datetime.timedelta(0))
 total_workflows = len(workflow_recovery_times)
-for workflow_times in workflow_recovery_times.values():
-    for time_to_recovery in workflow_times:
-        total_recovery_time += time_to_recovery
-
 mean_time_to_recovery = total_recovery_time / total_workflows if total_workflows > 0 else None
 
 if mean_time_to_recovery is not None:
