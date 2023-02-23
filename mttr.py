@@ -1,39 +1,36 @@
 import requests
 import datetime
+import json
 
 # replace with your personal access token and repo information
-<<<<<<< HEAD
-<<<<<<< HEAD
-ACCESS_TOKEN = ''
-OWNER = 'ministryofjustice'
-REPO = 'modernisation-platform-environments'
-=======
-ACCESS_TOKEN = 'your_token_here'
-OWNER = 'owner_name'
-REPO = 'repo_name'
->>>>>>> 9fa47a0 (Breaking out mean time to recovery into hours and minutes.)
-=======
 ACCESS_TOKEN = ''
 OWNER = 'ministryofjustice'
 REPO = 'modernisation-platform'
->>>>>>> 1b116fa (Optimising the script)
-
 # headers to include the access token in the request
 headers = {
     'Authorization': f'token {ACCESS_TOKEN}',
     'Accept': 'application/vnd.github.v3+json'
 }
+# load the repository names from a JSON file
+with open('repos.json', 'r') as f:
+    repos = json.load(f)['repos']
 
-# endpoint for getting workflow runs on the main branch for the last 90 days
-url = f'https://api.github.com/repos/{OWNER}/{REPO}/actions/runs?branch=main&per_page=100&status=completed&event=push'
-
-# retrieve all pages of the workflow runs
+# create a list to store the workflow runs for the repositories
 runs = []
-while url:
-    response = requests.get(url, headers=headers)
-    page_runs = response.json()['workflow_runs']
-    runs.extend(page_runs)
-    url = response.links.get('next', {}).get('url')
+
+# url = f'https://api.github.com/repos/{OWNER}/{REPO}/actions/runs?branch=main&per_page=100&status=completed'
+
+# loop over each repository
+for repo in repos:
+    # endpoint for getting workflow runs on the main branch for the last 90 days
+    url = f'https://api.github.com/repos/{OWNER}/{repo}/actions/runs?branch=main&per_page=100&status=completed'
+
+    # retrieve all pages of the workflow runs
+    while url:
+        response = requests.get(url, headers=headers)
+        page_runs = response.json()['workflow_runs']
+        runs.extend(page_runs)
+        url = response.links.get('next', {}).get('url')
 
 # sort the workflow runs by created_at in ascending order
 runs = sorted(runs, key=lambda run: datetime.datetime.fromisoformat(run['created_at'].replace('Z', '')))
@@ -66,7 +63,6 @@ for run in runs:
 workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for period in periods if period['end']]
                           for workflow_id, periods in workflow_periods.items()}
 
-print(workflow_recovery_times)
 # calculate the mean time to recovery across all workflows
 total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), datetime.timedelta(0))
 total_workflows = len(workflow_recovery_times)
