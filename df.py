@@ -1,4 +1,3 @@
-import requests
 from datetime import datetime, timedelta
 import argparse
 import json
@@ -11,23 +10,12 @@ OWNER = 'ministryofjustice'
 
 # Initialize variables
 runs = []
-next_page = 1
 per_page = 100
 
-# Calculate the date 90 days ago from today's date
-ninety_days_ago = datetime.now() - timedelta(days=90)
-date_string = ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%SZ')
 date_format = "%Y-%m-%dT%H:%M:%SZ"
 
 # Read ACCESS_TOKEN from environment
 ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
-
-# Get all successful workflow runs on the main branch
-# headers to include the access token in the request
-headers = {
-    'Authorization': f'token {ACCESS_TOKEN}',
-    'Accept': 'application/vnd.github.v3+json'
-}
 
 # set up the command-line argument parser
 parser = argparse.ArgumentParser()
@@ -41,10 +29,10 @@ with open(args.filename, 'r') as f:
     repos = json.load(f)['repos']
 
 for repo in repos:
-    params = {"branch": "main", "status": "success", "per_page": per_page, "completed_at": f">{date_string}"}
+    params = {"branch": "main", "status": "success", "per_page": per_page}
     try:
         runs = get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         # Log message if there's a problem retrieving the workflow runs
         print(f"Error retrieving workflow runs: {e}")
 
