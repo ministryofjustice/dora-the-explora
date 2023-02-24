@@ -1,5 +1,5 @@
 import requests
-import datetime
+from datetime import datetime, timedelta
 import json
 import pprint
 import argparse
@@ -33,7 +33,9 @@ filename, file_extension = os.path.splitext(args.filename)
 # create a list to store the workflow runs for the repositories
 runs = []
 
-# url = f'https://api.github.com/repos/{OWNER}/{REPO}/actions/runs?branch=main&per_page=100&status=completed'
+# Calculate the date 90 days ago from today's date
+ninety_days_ago = datetime.now() - timedelta(days=90)
+date_string = ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 # loop over each repository
 for repo in repos:
@@ -49,7 +51,7 @@ for repo in repos:
 
     # Get all successful workflow runs on the main branch
     headers = {"Authorization": f"Token {ACCESS_TOKEN}"}
-    params = {"branch": "main", "per_page": per_page}
+    params = {"branch": "main", "per_page": per_page, "completed_at": f">{date_string}"}
     while next_page is not None:
         if next_page != 1:
             params["page"] = next_page
@@ -70,7 +72,7 @@ for repo in repos:
             break
 
 # sort the workflow runs by created_at in ascending order
-runs = sorted(runs, key=lambda run: datetime.datetime.fromisoformat(run['created_at'].replace('Z', '')))
+runs = sorted(runs, key=lambda run: datetime.fromisoformat(run['created_at'].replace('Z', '')))
 
 # filter the unsuccessful runs
 unsuccessful_runs = [run for run in runs if run['conclusion'] != 'success']
@@ -86,14 +88,14 @@ for run in runs:
         if workflow_id not in workflow_periods:
             workflow_periods[workflow_id] = []
         if not workflow_periods[workflow_id] or workflow_periods[workflow_id][-1]['end']:
-            failure_time = datetime.datetime.fromisoformat(run['created_at'].replace('Z', ''))
+            failure_time = datetime.fromisoformat(run['created_at'].replace('Z', ''))
             workflow_periods[workflow_id].append({'start': failure_time, 'end': None})
             print(f"Found new failure for workflow '{workflow_name}' at {failure_time}")
     else:
         if workflow_id in workflow_periods and workflow_periods[workflow_id]:
             period = workflow_periods[workflow_id][-1]
             if not period['end']:
-                success_time = datetime.datetime.fromisoformat(run['created_at'].replace('Z', ''))
+                success_time = datetime.fromisoformat(run['created_at'].replace('Z', ''))
                 period['end'] = success_time
                 print(f"Found new success for workflow '{workflow_name}' at {success_time}")
 
@@ -105,7 +107,7 @@ workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for per
 pprint.pprint(workflow_recovery_times)
 
 # calculate the mean time to recovery across all workflows
-total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), datetime.timedelta(0))
+total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), timedelta(0))
 total_workflows = len(workflow_recovery_times)
 mean_time_to_recovery = total_recovery_time / total_workflows if total_workflows > 0 else None
 
