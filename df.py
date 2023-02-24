@@ -1,23 +1,26 @@
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import json
 import os
+from github_api import get_workflow_runs
 
-ACCESS_TOKEN = ''
+
 OWNER = 'ministryofjustice'
-NAME = "modernisation-platform"
 
-# API Endpoint
-api_url = f"https://api.github.com/repos/{OWNER}/{NAME}/actions/runs"
 
 # Initialize variables
 runs = []
 next_page = 1
 per_page = 100
 
-# Calculate the datetime 90 days ago
+# Calculate the date 90 days ago from today's date
+ninety_days_ago = datetime.now() - timedelta(days=90)
+date_string = ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%SZ')
 date_format = "%Y-%m-%dT%H:%M:%SZ"
+
+# Read ACCESS_TOKEN from environment
+ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
 
 # Get all successful workflow runs on the main branch
 # headers to include the access token in the request
@@ -38,27 +41,14 @@ with open(args.filename, 'r') as f:
     repos = json.load(f)['repos']
 
 for repo in repos:
-    params = {"branch": "main", "status": "success", "per_page": per_page}
+    params = {"branch": "main", "status": "success", "per_page": per_page, "completed_at": f">{date_string}"}
+    try:
+        runs = get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
+    except requests.exceptions.RequestException as e:
+        # Log message if there's a problem retrieving the workflow runs
+        print(f"Error retrieving workflow runs: {e}")
 
-    while next_page is not None:
-        if next_page != 1:
-            params["page"] = next_page
-        response = requests.get(api_url, headers=headers, params=params)
-        if response.status_code == 200:
-            runs += response.json()["workflow_runs"]
-            if "Link" in response.headers:
-                links = response.headers["Link"]
-                next_page_link = [link for link in links.split(",") if "rel=\"next\"" in link]
-                if next_page_link:
-                    next_page = int(next_page_link[0].split("page=")[-1].split(">")[0])
-                else:
-                    next_page = None
-            else:
-                next_page = None
-        else:
-            print(f"Error retrieving workflow runs: {response.status_code}")
-            break
-# Retrieve the workflow runs and count the number of successful runs
+# Count the number of successful runs
 num_successful_runs = len(runs)
 
 # Compute the number of days between the earliest and latest successful runs

@@ -1,14 +1,23 @@
 import requests
-import datetime
+from datetime import datetime, timedelta
+from github_api import get_workflow_runs
 import json
 import pprint
 import argparse
 import os
+from collections import defaultdict
 # replace with your personal access token and repo information
-ACCESS_TOKEN = ''
+
 OWNER = 'ministryofjustice'
-REPO = 'modernisation-platform'
+
+workflow_periods = defaultdict(list)
+workflow_stacks = defaultdict(list)
+
+# Read ACCESS_TOKEN from environment
+ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
+
 # headers to include the access token in the request
+
 headers = {
     'Authorization': f'token {ACCESS_TOKEN}',
     'Accept': 'application/vnd.github.v3+json'
@@ -29,71 +38,54 @@ filename, file_extension = os.path.splitext(args.filename)
 # create a list to store the workflow runs for the repositories
 runs = []
 
-# url = f'https://api.github.com/repos/{OWNER}/{REPO}/actions/runs?branch=main&per_page=100&status=completed'
+# Calculate the date 90 days ago from today's date
+ninety_days_ago = datetime.now() - timedelta(days=90)
+date_string = ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 # loop over each repository
 for repo in repos:
-    # API Endpoint
-    api_url = f"https://api.github.com/repos/{OWNER}/{repo}/actions/runs"
+
 
     # Initialize variables
     next_page = 1
     per_page = 100
 
-    # Calculate the datetime 90 days ago
-    date_format = "%Y-%m-%dT%H:%M:%SZ"
-
     # Get all successful workflow runs on the main branch
     headers = {"Authorization": f"Token {ACCESS_TOKEN}"}
-    params = {"branch": "main", "per_page": per_page}
-    while next_page is not None:
-        if next_page != 1:
-            params["page"] = next_page
-        response = requests.get(api_url, headers=headers, params=params)
-        if response.status_code == 200:
-            runs += response.json()["workflow_runs"]
-            if "Link" in response.headers:
-                links = response.headers["Link"]
-                next_page_link = [link for link in links.split(",") if "rel=\"next\"" in link]
-                if next_page_link:
-                    next_page = int(next_page_link[0].split("page=")[-1].split(">")[0])
-                else:
-                    next_page = None
-            else:
-                next_page = None
-        else:
-            print(f"Error retrieving workflow runs: {response.status_code}")
-            break
+    params = {"branch": "main", "per_page": per_page, "completed_at": f">{date_string}"}
+    try:
+        runs = get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
+    except requests.exceptions.RequestException as e:
+        # Log message if there's a problem retrieving the workflow runs
+        print(f"Error retrieving workflow runs: {e}")
 
 # sort the workflow runs by created_at in ascending order
-runs = sorted(runs, key=lambda run: datetime.datetime.fromisoformat(run['created_at'].replace('Z', '')))
+runs = sorted(runs, key=lambda run: datetime.fromisoformat(run['created_at'].replace('Z', '')))
 
 # filter the unsuccessful runs
 unsuccessful_runs = [run for run in runs if run['conclusion'] != 'success']
 
 # find the periods between the first unsuccessful run and the first subsequent successful run for each workflow
-workflow_periods = {}
 for run in runs:
     workflow_id = run['workflow_id']
     workflow_name = run['name']
+
     if workflow_name == "Terraform Static Code Analysis":
         continue
+
+    timestamp = datetime.fromisoformat(run['created_at'].replace('Z', ''))
+
     if run['conclusion'] != 'success':
-        if workflow_id not in workflow_periods:
-            workflow_periods[workflow_id] = []
-        if not workflow_periods[workflow_id] or workflow_periods[workflow_id][-1]['end']:
-            failure_time = datetime.datetime.fromisoformat(run['created_at'].replace('Z', ''))
-            workflow_periods[workflow_id].append({'start': failure_time, 'end': None})
-            print(f"Found new failure for workflow '{workflow_name}' at {failure_time}")
+        if not workflow_stacks[workflow_id]:
+            workflow_stacks[workflow_id].append(timestamp)
+            print(f"Found new failure for workflow '{workflow_name}' at {timestamp}")
     else:
-        if workflow_id in workflow_periods and workflow_periods[workflow_id]:
-            period = workflow_periods[workflow_id][-1]
-            if not period['end']:
-                success_time = datetime.datetime.fromisoformat(run['created_at'].replace('Z', ''))
-                period['end'] = success_time
-                print(f"Found new success for workflow '{workflow_name}' at {success_time}")
-
-
+        if workflow_stacks[workflow_id]:
+            start = workflow_stacks[workflow_id].pop()
+            period = {'start': start, 'end': timestamp}
+            workflow_periods[workflow_id].append(period)
+            print(f"Found new success for workflow '{workflow_name}' at {timestamp}")
+        workflow_stacks[workflow_id] = []
 # calculate the time to recovery for each workflow
 workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for period in periods if period['end']]
                           for workflow_id, periods in workflow_periods.items()}
@@ -101,7 +93,7 @@ workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for per
 pprint.pprint(workflow_recovery_times)
 
 # calculate the mean time to recovery across all workflows
-total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), datetime.timedelta(0))
+total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), timedelta(0))
 total_workflows = len(workflow_recovery_times)
 mean_time_to_recovery = total_recovery_time / total_workflows if total_workflows > 0 else None
 
