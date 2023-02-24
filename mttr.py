@@ -5,9 +5,13 @@ import json
 import pprint
 import argparse
 import os
+from collections import defaultdict
 # replace with your personal access token and repo information
 
 OWNER = 'ministryofjustice'
+
+workflow_periods = defaultdict(list)
+workflow_stacks = defaultdict(list)
 
 # Read ACCESS_TOKEN from environment
 ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
@@ -62,28 +66,26 @@ runs = sorted(runs, key=lambda run: datetime.fromisoformat(run['created_at'].rep
 unsuccessful_runs = [run for run in runs if run['conclusion'] != 'success']
 
 # find the periods between the first unsuccessful run and the first subsequent successful run for each workflow
-workflow_periods = {}
 for run in runs:
     workflow_id = run['workflow_id']
     workflow_name = run['name']
+
     if workflow_name == "Terraform Static Code Analysis":
         continue
+
+    timestamp = datetime.fromisoformat(run['created_at'].replace('Z', ''))
+
     if run['conclusion'] != 'success':
-        if workflow_id not in workflow_periods:
-            workflow_periods[workflow_id] = []
-        if not workflow_periods[workflow_id] or workflow_periods[workflow_id][-1]['end']:
-            failure_time = datetime.fromisoformat(run['created_at'].replace('Z', ''))
-            workflow_periods[workflow_id].append({'start': failure_time, 'end': None})
-            print(f"Found new failure for workflow '{workflow_name}' at {failure_time}")
+        if not workflow_stacks[workflow_id]:
+            workflow_stacks[workflow_id].append(timestamp)
+            print(f"Found new failure for workflow '{workflow_name}' at {timestamp}")
     else:
-        if workflow_id in workflow_periods and workflow_periods[workflow_id]:
-            period = workflow_periods[workflow_id][-1]
-            if not period['end']:
-                success_time = datetime.fromisoformat(run['created_at'].replace('Z', ''))
-                period['end'] = success_time
-                print(f"Found new success for workflow '{workflow_name}' at {success_time}")
-
-
+        if workflow_stacks[workflow_id]:
+            start = workflow_stacks[workflow_id].pop()
+            period = {'start': start, 'end': timestamp}
+            workflow_periods[workflow_id].append(period)
+            print(f"Found new success for workflow '{workflow_name}' at {timestamp}")
+        workflow_stacks[workflow_id] = []
 # calculate the time to recovery for each workflow
 workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for period in periods if period['end']]
                           for workflow_id, periods in workflow_periods.items()}
