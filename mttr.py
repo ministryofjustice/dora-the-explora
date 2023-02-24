@@ -1,4 +1,3 @@
-import requests
 from datetime import datetime, timedelta
 from github_api import get_workflow_runs
 import json
@@ -16,18 +15,15 @@ workflow_stacks = defaultdict(list)
 # Read ACCESS_TOKEN from environment
 ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
 
-# headers to include the access token in the request
-
-headers = {
-    'Authorization': f'token {ACCESS_TOKEN}',
-    'Accept': 'application/vnd.github.v3+json'
-}
-
 # set up the command-line argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument('filename', help='path to the input JSON file')
 args = parser.parse_args()
 
+
+# Initialize variables
+runs = []
+per_page = 100
 
 # load the repository names from a JSON file
 with open(args.filename, 'r') as f:
@@ -38,24 +34,14 @@ filename, file_extension = os.path.splitext(args.filename)
 # create a list to store the workflow runs for the repositories
 runs = []
 
-# Calculate the date 90 days ago from today's date
-ninety_days_ago = datetime.now() - timedelta(days=90)
-date_string = ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%SZ')
-
 # loop over each repository
 for repo in repos:
 
-
-    # Initialize variables
-    next_page = 1
-    per_page = 100
-
-    # Get all successful workflow runs on the main branch
-    headers = {"Authorization": f"Token {ACCESS_TOKEN}"}
-    params = {"branch": "main", "per_page": per_page, "completed_at": f">{date_string}"}
+    # Get all workflow runs on the main branch
+    params = {"branch": "main", "per_page": per_page}
     try:
         runs = get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         # Log message if there's a problem retrieving the workflow runs
         print(f"Error retrieving workflow runs: {e}")
 
