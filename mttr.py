@@ -5,10 +5,14 @@ import pprint
 import argparse
 import os
 # replace with your personal access token and repo information
-ACCESS_TOKEN = ''
+
 OWNER = 'ministryofjustice'
-REPO = 'modernisation-platform'
+
+# Read ACCESS_TOKEN from environment
+ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
+
 # headers to include the access token in the request
+
 headers = {
     'Authorization': f'token {ACCESS_TOKEN}',
     'Accept': 'application/vnd.github.v3+json'

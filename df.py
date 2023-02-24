@@ -4,12 +4,9 @@ import argparse
 import json
 import os
 
-ACCESS_TOKEN = ''
-OWNER = 'ministryofjustice'
-NAME = "modernisation-platform"
 
-# API Endpoint
-api_url = f"https://api.github.com/repos/{OWNER}/{NAME}/actions/runs"
+OWNER = 'ministryofjustice'
+
 
 # Initialize variables
 runs = []
@@ -19,6 +16,8 @@ per_page = 100
 # Calculate the datetime 90 days ago
 date_format = "%Y-%m-%dT%H:%M:%SZ"
 
+# Read ACCESS_TOKEN from environment
+ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
 # Get all successful workflow runs on the main branch
 # headers to include the access token in the request
 headers = {
@@ -39,7 +38,8 @@ with open(args.filename, 'r') as f:
 
 for repo in repos:
     params = {"branch": "main", "status": "success", "per_page": per_page}
-
+    # API Endpoint
+    api_url = f"https://api.github.com/repos/{OWNER}/{repo}/actions/runs"
     while next_page is not None:
         if next_page != 1:
             params["page"] = next_page
