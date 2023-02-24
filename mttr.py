@@ -1,5 +1,6 @@
 import requests
 from datetime import datetime, timedelta
+from github_api import get_workflow_runs
 import json
 import pprint
 import argparse
@@ -39,37 +40,20 @@ date_string = ninety_days_ago.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 # loop over each repository
 for repo in repos:
-    # API Endpoint
-    api_url = f"https://api.github.com/repos/{OWNER}/{repo}/actions/runs"
+
 
     # Initialize variables
     next_page = 1
     per_page = 100
 
-    # Calculate the datetime 90 days ago
-    date_format = "%Y-%m-%dT%H:%M:%SZ"
-
     # Get all successful workflow runs on the main branch
     headers = {"Authorization": f"Token {ACCESS_TOKEN}"}
     params = {"branch": "main", "per_page": per_page, "completed_at": f">{date_string}"}
-    while next_page is not None:
-        if next_page != 1:
-            params["page"] = next_page
-        response = requests.get(api_url, headers=headers, params=params)
-        if response.status_code == 200:
-            runs += response.json()["workflow_runs"]
-            if "Link" in response.headers:
-                links = response.headers["Link"]
-                next_page_link = [link for link in links.split(",") if "rel=\"next\"" in link]
-                if next_page_link:
-                    next_page = int(next_page_link[0].split("page=")[-1].split(">")[0])
-                else:
-                    next_page = None
-            else:
-                next_page = None
-        else:
-            print(f"Error retrieving workflow runs: {response.status_code}")
-            break
+    try:
+        runs = get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
+    except requests.exceptions.RequestException as e:
+        # Log message if there's a problem retrieving the workflow runs
+        print(f"Error retrieving workflow runs: {e}")
 
 # sort the workflow runs by created_at in ascending order
 runs = sorted(runs, key=lambda run: datetime.fromisoformat(run['created_at'].replace('Z', '')))
