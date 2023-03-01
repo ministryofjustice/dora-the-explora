@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import json
 import os
 import argparse
+import pprint
 
 OWNER = 'ministryofjustice'
 
@@ -50,9 +51,13 @@ for repo in repos:
         commits_url = pr["url"] + "/commits"
         try:
             commits = make_github_api_call(commits_url, ACCESS_TOKEN)
+            # for commit in commits:
+            #     commit_date = datetime.fromisoformat(commit["commit"]["committer"]["date"][:-1])
+            #     print(f"Commit date: {commit_date}")
             if len(commits) > 0:
-                last_commit = commits[-1]
+                last_commit = commits[-1] # change to commits[0] to get first rather than commit.
                 commit_time = datetime.fromisoformat(last_commit["commit"]["committer"]["date"][:-1])
+                # print(f"Commit date: {commit_time}")
             else:
                 commit_time = merged_at
         except Exception as e:
@@ -64,11 +69,11 @@ for repo in repos:
         # Calculate the lead time for the pull request
         lead_time = merged_at - commit_time
         total_lead_time += lead_time
-    team_lead_time =+ total_lead_time
-    team_merged_pull_requests =+ num_pull_requests
+    team_lead_time += total_lead_time
+    team_merged_pull_requests += num_pull_requests
 
 if team_merged_pull_requests > 0:
     mean_lead_time = team_lead_time / team_merged_pull_requests
-    print(f"Mean lead time for {filename} team over {team_merged_pull_requests} merged pull requests: {mean_lead_time}")
+    print(f"\033[32m\033[1mMean lead time for {filename} team over {team_merged_pull_requests} merged pull requests: {mean_lead_time.days} days, {mean_lead_time.seconds // 3600} hours, {(mean_lead_time.seconds % 3600) // 60} minutes\033[0m")
 else:
     print("No merged pull requests found.")
