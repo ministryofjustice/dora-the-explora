@@ -38,11 +38,15 @@ for repo in repos:
     # Get all workflow runs on the main branch
     params = {"branch": "main", "per_page": per_page}
     try:
-        runs += get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
-        print(f"Retrieved {len(runs)} workflow runs for {OWNER}/{repo}")
+        repo_run = get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
+        print(f"Retrieved {len(repo_run)} workflow runs for {OWNER}/{repo}")
+        runs += repo_run
+
     except Exception as e:
         # Log message if there's a problem retrieving the workflow runs
         print(f"Error retrieving workflow runs: {e}")
+
+print(f"Retrieved {len(runs)} workflow runs in total")
 
 # sort the workflow runs by created_at in ascending order
 runs = sorted(runs, key=lambda run: datetime.fromisoformat(run['created_at'].replace('Z', '')))
