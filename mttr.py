@@ -38,7 +38,7 @@ for repo in repos:
     # Get all workflow runs on the main branch
     params = {"branch": "main", "per_page": per_page}
     try:
-        runs += get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
+        runs = get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
         print(f"Retrieved {len(runs)} workflow runs for {OWNER}/{repo}")
     except Exception as e:
         # Log message if there's a problem retrieving the workflow runs

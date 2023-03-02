@@ -1,5 +1,6 @@
 {
     "repos": [
-        "modernisation-platform"
+        "modernisation-platform",
+        "modernisation-platform-environments"
     ]
 }
