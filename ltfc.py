@@ -17,6 +17,7 @@ ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
 # set up the command-line argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument('filename', help='path to the input JSON file')
+parser.add_argument('date_query', help='github date range query')
 args = parser.parse_args()
 
 filename, file_extension = os.path.splitext(args.filename)
@@ -28,7 +29,7 @@ team_lead_time = timedelta()
 with open(args.filename, 'r') as f:
     repos = json.load(f)['repos']
 for repo in repos:
-    params = {"state": "closed", "sort": "updated", "direction": "desc", "per_page": per_page, "base": "main"}
+    params = {"state": "closed", "sort": "updated", "direction": "desc", "per_page": per_page, "base": "main", "created": args.date_query}
     try:
         merged_pull_requests = get_merged_pull_requests(OWNER, repo, ACCESS_TOKEN, params)
     except Exception as e:
