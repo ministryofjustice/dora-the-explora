@@ -20,7 +20,7 @@ ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
 # set up the command-line argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument('filename', help='path to the input JSON file')
-parser.add_argument('date_query', help='github date range query')
+parser.add_argument('date_query', help='date range in the format 2023-04-01..2023-05-01')
 args = parser.parse_args()
 
 filename, file_extension = os.path.splitext(args.filename)
@@ -30,7 +30,6 @@ with open(args.filename, 'r') as f:
     repos = json.load(f)['repos']
 
 num_successful_runs = 0
-print(args.date_query)
 
 for repo in repos:
     params = {"branch": "main", "status": "success", "per_page": per_page, "created": args.date_query}
