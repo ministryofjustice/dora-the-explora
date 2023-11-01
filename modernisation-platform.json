@@ -2,7 +2,6 @@
     "repos": [
         "modernisation-platform",
         "modernisation-platform-terraform-ec2-autoscaling-group",
-        "modernisation-platform-ami-builds",
         "modernisation-platform-terraform-ec2-instance",
         "modernisation-platform-configuration-management",
         "modernisation-platform-terraform-ecs",
