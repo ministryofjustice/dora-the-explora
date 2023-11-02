@@ -2,5 +2,6 @@
     "repos": [
         "data-platform",
         "data-platform-products"
-    ]
+    ],
+    "excluded_workflows": []
 }
