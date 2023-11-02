@@ -3,9 +3,22 @@ import argparse
 import json
 import os
 from github_api import get_workflow_runs
+import logging
 
+OWNER = "ministryofjustice"
 
-OWNER = 'ministryofjustice'
+logger = logging.getLogger('MetricLogger')
+logger.setLevel(logging.INFO)
+
+fh = logging.FileHandler('output.log')
+fh.setLevel(logging.INFO)
+
+# Create formatter and set it for both handlers
+formatter = logging.Formatter('%(message)s')
+fh.setFormatter(formatter)
+
+# Add the handlers to the logger
+logger.addHandler(fh)
 
 
 # Initialize variables
@@ -15,26 +28,33 @@ per_page = 100
 date_format = "%Y-%m-%dT%H:%M:%SZ"
 
 # Read ACCESS_TOKEN from environment
-ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
+ACCESS_TOKEN = os.environ["ACCESS_TOKEN"]
 
 # set up the command-line argument parser
 parser = argparse.ArgumentParser()
-parser.add_argument('filename', help='path to the input JSON file')
-parser.add_argument('date_query', help='date range in the format 2023-04-01..2023-05-01')
+parser.add_argument("filename", help="path to the input JSON file")
+parser.add_argument(
+    "date_query", help="date range in the format 2023-04-01..2023-05-01"
+)
 args = parser.parse_args()
 
 filename, file_extension = os.path.splitext(args.filename)
 
 # load the repository names from a JSON file
-with open(args.filename, 'r') as f:
-    repos = json.load(f)['repos']
+with open(args.filename, "r") as f:
+    repos = json.load(f)["repos"]
 
 num_successful_runs = 0
 
 for repo in repos:
-    params = {"branch": "main", "status": "success", "per_page": per_page, "created": args.date_query}
+    params = {
+        "branch": "main",
+        "status": "success",
+        "per_page": per_page,
+        "created": args.date_query,
+    }
     try:
-        runs += get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
+        runs += get_workflow_runs(OWNER, repo, ACCESS_TOKEN, params)
         # Count the number of successful runs
     except Exception as e:
         # Log message if there's a problem retrieving the workflow runs
@@ -56,5 +76,7 @@ deployment_frequency = num_successful_runs / delta_days if delta_days > 0 else N
 
 if deployment_frequency is not None:
     print(f"\033[1m\033[32mDaily deployment frequency for {filename}: {deployment_frequency:.2f} deployments/day\033[0m")
+    logger.info(f"\nDaily deployment frequency for {filename}: {deployment_frequency:.2f} deployments/day")
 else:
     print(f"\033[1m\033[32m{filename} does not use github actions for deployments\033[0m")
+    logger.info(f"{filename} does not use github actions for deployments")
