@@ -1,0 +1,66 @@
+name: DORA Metrics Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      date_range:
+        description: 'Date range for metrics (format: YYYY-MM-DD..YYYY-MM-DD)'
+        required: false
+      json_file_path:
+        description: 'Path to the JSON file with repository names'
+        required: false
+  schedule:
+    - cron: '0 8 * * 0' # At 08:00 on Sunday
+  pull_request:
+
+permissions: {}
+
+jobs:
+  run_metrics:
+    permissions:
+      issues: write
+      contents: write
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4.1.1
+
+    - name: Set up Python
+      uses: actions/setup-python@v4.7.0
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Get current date
+      if: github.event.inputs.date_range == ''
+      id: date
+      run: echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
+
+    - name: Calculate date range for the last 7 days
+      if: github.event.inputs.date_range == ''
+      id: last-7-days
+      run: |
+        echo "start_date=$(date -u +%Y-%m-%d --date='7 days ago')" >> $GITHUB_ENV
+
+    - name: Run scripts and create issues
+      env:
+        ACCESS_TOKEN: ${{ secrets.DATA_PLATFORM_ROBOT_PAT }}
+        GH_TOKEN: ${{ github.token }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+      run: |
+        for json_file in *.json; do
+          name=$(basename "$json_file" .json)
+          issue_title="📊 DORA Metrics for ${{ env.start_date }}..${{ env.date }} for $name"
+          issue_body=""
+
+          for script in cfr.py df.py ltfc.py mttr.py; do
+            output=$(python $script $json_file "${{ env.start_date }}..${{ env.date }}")
+            metric=$(basename "$script" .py | tr '[:lower:]' '[:upper:]')
+            issue_body+="### $metric\n\`\`\`\n$output\n\`\`\`\n"
+          done
+          echo "$issue_body"
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            gh issue create --title "$issue_title" --body "$issue_body"
+          fi
+        done
