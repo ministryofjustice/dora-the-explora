@@ -28,7 +28,9 @@ per_page = 100
 
 # load the repository names from a JSON file
 with open(args.filename, 'r') as f:
-    repos = json.load(f)['repos']
+    data = json.load(f)
+    repos = data['repos']
+    excluded_workflows = data['excluded_workflows']
 
 filename, file_extension = os.path.splitext(args.filename)
 
@@ -60,13 +62,7 @@ for repo in repos:
         workflow_id = run['workflow_id']
         workflow_name = run['name']
 
-        if workflow_name == "Terraform Static Code Analysis":
-            continue
-
-        if workflow_name == "Secure Code Analysis":
-            continue
-
-        if workflow_name == "Scorecards supply-chain security":
+        if workflow_name in excluded_workflows:
             continue
 
         timestamp = datetime.fromisoformat(run['created_at'].replace('Z', ''))
@@ -86,9 +82,6 @@ for repo in repos:
     workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for period in periods if period['end']]
                               for workflow_id, periods in workflow_periods_repo.items()}
 
-    # print("### Workflow Recovery Dict ###")
-    # pprint.pprint(workflow_recovery_times)
-
     total_workflows = sum(len(periods) for periods in workflow_periods_repo.values())
     print(f"Total Workflows: {total_workflows}")
     total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), timedelta(0))
@@ -98,9 +91,13 @@ for repo in repos:
         days, seconds = mean_time_to_recovery.days, mean_time_to_recovery.seconds
         hours = seconds // 3600
         minutes = (seconds % 3600) // 60
-        print(f"\033[32m\033[1mMean time to recovery for {repo}: {days} days, {hours} hours, {minutes} minutes\033[0m")
+        print(f"\033[32m\033[1mMean time to recovery for {repo} repo: {days} days, {hours} hours, {minutes} minutes\033[0m")
     else:
         print("No unsuccessful workflow runs found in the last 90 days.")
+
+print(f"*************************")
+print(f"\033[32m\033[1mCalculating for all repos\033[0m")
+print(f"*************************")
 print(f"Retrieved {len(runs)} workflow runs in total")
 
 # sort the workflow runs by created_at in ascending order
@@ -113,13 +110,7 @@ for run in runs:
     workflow_id = run['workflow_id']
     workflow_name = run['name']
 
-    if workflow_name == "Terraform Static Code Analysis":
-        continue
-
-    if workflow_name == "Secure Code Analysis":
-        continue
-
-    if workflow_name == "Scorecards supply-chain security":
+    if workflow_name in excluded_workflows:
         continue
 
     timestamp = datetime.fromisoformat(run['created_at'].replace('Z', ''))
@@ -153,4 +144,4 @@ if mean_time_to_recovery is not None:
     minutes = (seconds % 3600) // 60
     print(f"\033[32m\033[1mMean time to recovery for {filename}: {days} days, {hours} hours, {minutes} minutes\033[0m")
 else:
-    print("No unsuccessful workflow runs found in the last 90 days.")
+    print("No unsuccessful workflow runs found.")
