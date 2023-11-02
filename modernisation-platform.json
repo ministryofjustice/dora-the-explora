@@ -2,7 +2,6 @@
     "repos": [
         "modernisation-platform",
         "modernisation-platform-terraform-ec2-autoscaling-group",
-        "modernisation-platform-ami-builds",
         "modernisation-platform-terraform-ec2-instance",
         "modernisation-platform-configuration-management",
         "modernisation-platform-terraform-ecs",
@@ -26,5 +25,10 @@
         "modernisation-platform-terraform-ssm-patching",
         "modernisation-platform-terraform-cross-account-access",
         "modernisation-platform-terraform-trusted-advisor"
+    ],
+    "excluded_workflows": [
+        "Terraform Static Code Analysis",
+        "Secure Code Analysis",
+        "Scorecards supply-chain security"
     ]
 }

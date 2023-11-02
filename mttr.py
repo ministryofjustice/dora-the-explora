@@ -7,6 +7,48 @@ import os
 from collections import defaultdict
 # replace with your personal access token and repo information
 
+def calculate_mean_time_to_recovery(repo, runs, workflow_periods, workflow_stacks):
+      # find the periods between the first unsuccessful run and the first subsequent successful run for each workflow
+    for run in runs:
+        workflow_id = run['workflow_id']
+        workflow_name = run['name']
+
+        if workflow_name in excluded_workflows:
+            continue
+
+        timestamp = datetime.fromisoformat(run['created_at'].replace('Z', ''))
+
+        if run['conclusion'] != 'success':
+            if not workflow_stacks[workflow_id]:
+                workflow_stacks[workflow_id].append(timestamp)
+                print(f"Found new failure for workflow '{workflow_name}' at {timestamp}")
+        else:
+            if workflow_stacks[workflow_id]:
+                start = workflow_stacks[workflow_id].pop()
+                period = {'start': start, 'end': timestamp}
+                workflow_periods[workflow_id].append(period)
+                print(f"Found new success for workflow '{workflow_name}' at {timestamp}")
+            workflow_stacks[workflow_id] = []
+    # calculate the time to recovery for each workflow
+    workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for period in periods if period['end']]
+                              for workflow_id, periods in workflow_periods.items()}
+
+    # print("### Workflow Recovery Dict ###")
+    # pprint.pprint(workflow_recovery_times)
+
+    total_workflows = sum(len(periods) for periods in workflow_periods.values())
+    print(f"Total Workflows: {total_workflows}")
+    total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), timedelta(0))
+    mean_time_to_recovery = total_recovery_time / total_workflows if total_workflows > 0 else None
+
+    if mean_time_to_recovery is not None:
+        days, seconds = mean_time_to_recovery.days, mean_time_to_recovery.seconds
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        print(f"\033[32m\033[1mMean time to recovery for {repo} repo: {days} days, {hours} hours, {minutes} minutes\033[0m")
+    else:
+        print("No unsuccessful workflow runs found.") 
+
 OWNER = 'ministryofjustice'
 
 workflow_periods = defaultdict(list)
@@ -28,25 +70,40 @@ per_page = 100
 
 # load the repository names from a JSON file
 with open(args.filename, 'r') as f:
-    repos = json.load(f)['repos']
+    data = json.load(f)
+    repos = data['repos']
+    excluded_workflows = data['excluded_workflows']
 
 filename, file_extension = os.path.splitext(args.filename)
 
 
 # loop over each repository
 for repo in repos:
-
+    repo_run = []
+    repo_runs = []
+    workflow_periods_repo = defaultdict(list)
+    workflow_stacks_repo = defaultdict(list)
+    
     # Get all workflow runs on the main branch
     params = {"branch": "main", "per_page": per_page, "created": args.date_query}
     try:
         repo_run = get_workflow_runs(OWNER,repo, ACCESS_TOKEN,params)
         print(f"Retrieved {len(repo_run)} workflow runs for {OWNER}/{repo}")
         runs += repo_run
-
     except Exception as e:
         # Log message if there's a problem retrieving the workflow runs
         print(f"Error retrieving workflow runs: {e}")
 
+    # sort the workflow runs by created_at in ascending order
+    repo_runs = sorted(repo_run, key=lambda run: datetime.fromisoformat(run['created_at'].replace('Z', '')))
+    # filter the unsuccessful runs
+    unsuccessful_runs = [run for run in repo_runs if run['conclusion'] != 'success']
+
+    calculate_mean_time_to_recovery(repo, repo_runs, workflow_periods_repo, workflow_stacks_repo)
+
+print(f"*************************")
+print(f"\033[32m\033[1mCalculating for all repos\033[0m")
+print(f"*************************")
 print(f"Retrieved {len(runs)} workflow runs in total")
 
 # sort the workflow runs by created_at in ascending order
@@ -54,43 +111,4 @@ runs = sorted(runs, key=lambda run: datetime.fromisoformat(run['created_at'].rep
 # filter the unsuccessful runs
 unsuccessful_runs = [run for run in runs if run['conclusion'] != 'success']
 
-# find the periods between the first unsuccessful run and the first subsequent successful run for each workflow
-for run in runs:
-    workflow_id = run['workflow_id']
-    workflow_name = run['name']
-
-    if workflow_name == "Terraform Static Code Analysis":
-        continue
-
-    timestamp = datetime.fromisoformat(run['created_at'].replace('Z', ''))
-
-    if run['conclusion'] != 'success':
-        if not workflow_stacks[workflow_id]:
-            workflow_stacks[workflow_id].append(timestamp)
-            print(f"Found new failure for workflow '{workflow_name}' at {timestamp}")
-    else:
-        if workflow_stacks[workflow_id]:
-            start = workflow_stacks[workflow_id].pop()
-            period = {'start': start, 'end': timestamp}
-            workflow_periods[workflow_id].append(period)
-            print(f"Found new success for workflow '{workflow_name}' at {timestamp}")
-        workflow_stacks[workflow_id] = []
-# calculate the time to recovery for each workflow
-workflow_recovery_times = {workflow_id: [period['end'] - period['start'] for period in periods if period['end']]
-                          for workflow_id, periods in workflow_periods.items()}
-
-# print("### Workflow Recovery Dict ###")
-# pprint.pprint(workflow_recovery_times)
-
-total_workflows = sum(len(periods) for periods in workflow_periods.values())
-print(f"Total Workflows: {total_workflows}")
-total_recovery_time = sum((time_to_recovery for workflow_times in workflow_recovery_times.values() for time_to_recovery in workflow_times), timedelta(0))
-mean_time_to_recovery = total_recovery_time / total_workflows if total_workflows > 0 else None
-
-if mean_time_to_recovery is not None:
-    days, seconds = mean_time_to_recovery.days, mean_time_to_recovery.seconds
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    print(f"\033[32m\033[1mMean time to recovery for {filename}: {days} days, {hours} hours, {minutes} minutes\033[0m")
-else:
-    print("No unsuccessful workflow runs found in the last 90 days.")
+calculate_mean_time_to_recovery(filename, runs, workflow_periods, workflow_stacks)
