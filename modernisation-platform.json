@@ -26,5 +26,10 @@
         "modernisation-platform-terraform-ssm-patching",
         "modernisation-platform-terraform-cross-account-access",
         "modernisation-platform-terraform-trusted-advisor"
+    ],
+    "excluded_workflows": [
+        "Terraform Static Code Analysis",
+        "Secure Code Analysis",
+        "Scorecards supply-chain security"
     ]
 }

@@ -45,7 +45,9 @@ per_page = 100
 
 # load the repository names from a JSON file
 with open(args.filename, "r") as f:
-    repos = json.load(f)["repos"]
+    data = json.load(f)
+    repos = data['repos']
+    excluded_workflows = data['excluded_workflows']
 
 filename, file_extension = os.path.splitext(args.filename)
 
@@ -77,7 +79,7 @@ for run in runs:
     workflow_id = run["workflow_id"]
     workflow_name = run["name"]
 
-    if workflow_name == "Terraform Static Code Analysis":
+    if workflow_name in excluded_workflows:
         continue
 
     timestamp = datetime.fromisoformat(run["created_at"].replace("Z", ""))
