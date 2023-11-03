@@ -1,5 +1,6 @@
 {
     "repos": [
         "data-platform"
-    ]
+    ],
+    "excluded_workflows": []
 }
