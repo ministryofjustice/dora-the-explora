@@ -24,8 +24,6 @@ logger.addHandler(fh)
 # Initialize variables
 runs = []
 per_page = 100
-num_excluded_runs = 0
-
 date_format = "%Y-%m-%dT%H:%M:%SZ"
 
 # Read ACCESS_TOKEN from environment
@@ -64,11 +62,9 @@ for repo in repos:
         print(f"Error retrieving workflow runs: {e}")
 
 # Calculate number of successful runs (minus the excluded runs)
-num_runs = len(runs)
-num_excluded_runs += len(
-        [run for run in runs if run["name"] in excluded_workflows]
+num_successful_runs += len(
+    [run for run in runs if run["name"] not in excluded_workflows]
     )
-num_successful_runs = (num_runs - num_excluded_runs)
 
 # Compute the number of days between the earliest and latest successful runs
 if num_successful_runs > 0:
