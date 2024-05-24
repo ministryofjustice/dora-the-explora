@@ -33,7 +33,9 @@ args = parser.parse_args()
 
 # load the repository names from a JSON file
 with open(args.filename, "r") as f:
-    repos = json.load(f)["repos"]
+    data = json.load(f)
+    repos = data['repos']
+    excluded_workflows = data['excluded_workflows']
 
 filename, file_extension = os.path.splitext(args.filename)
 # Initialize variables
@@ -54,7 +56,7 @@ for repo in repos:
     workflow_runs = get_workflow_runs(OWNER, repo, ACCESS_TOKEN, params)
     total_workflow_runs += len(workflow_runs)
     total_unsuccessful_runs += len(
-        [run for run in workflow_runs if run["conclusion"] != "success"]
+        [run for run in workflow_runs if run["conclusion"] != "success" and run["name"] not in excluded_workflows]
     )
 
 
