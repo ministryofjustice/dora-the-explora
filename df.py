@@ -61,7 +61,7 @@ for repo in repos:
         # Log message if there's a problem retrieving the workflow runs
         print(f"Error retrieving workflow runs: {e}")
 
-# Calculate number of successful runs (minus the excluded runs)
+# Calculate number of successful runs (minus the excluded workflows)
 num_successful_runs += len(
     [run for run in runs if run["name"] not in excluded_workflows]
     )
