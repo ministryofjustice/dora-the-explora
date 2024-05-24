@@ -4,8 +4,6 @@
         "modernisation-platform-terraform-ec2-autoscaling-group",
         "modernisation-platform-ami-builds",
         "modernisation-platform-terraform-ec2-instance",
-        "modernisation-platform-configuration-management",
-        "modernisation-platform-terraform-ecs",
         "modernisation-platform-cp-network-test",
         "modernisation-platform-terraform-ecs-cluster",
         "modernisation-platform-terraform-environments",
@@ -15,7 +13,6 @@
         "modernisation-platform-terraform-lambda-function",
         "modernisation-platform-terraform-loadbalancer",
         "modernisation-platform-terraform-member-vpc",
-        "modernisation-platform-infrastructure-test",
         "modernisation-platform-instance-scheduler",
         "modernisation-platform-terraform-pagerduty-integration",
         "modernisation-platform-terraform-aws-vm-import",
@@ -25,7 +22,7 @@
         "modernisation-platform-terraform-bastion-linux",
         "modernisation-platform-terraform-ssm-patching",
         "modernisation-platform-terraform-cross-account-access",
-        "modernisation-platform-terraform-trusted-advisor"
+        "modernisation-platform-terraform-dns-certificates"
     ],
     "excluded_workflows": [
         "Terraform Static Code Analysis",
