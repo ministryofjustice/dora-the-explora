@@ -35,14 +35,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Get current date
+      - name: Get current end_date
         if: github.event.inputs.date_range == ''
-        id: date
-        run: echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
+        run: echo "end_date=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
 
-      - name: Calculate date range for the last 7 days
+      - name: Calculate start_date (7 days ago)
         if: github.event.inputs.date_range == ''
-        id: last-7-days
         run: |
           echo "start_date=$(date -u +%Y-%m-%d --date='7 days ago')" >> $GITHUB_ENV
 
@@ -52,7 +50,7 @@ jobs:
           start_date=$(echo "${{ github.event.inputs.date_range }}" | cut -d. -f1)
           end_date=$(echo "${{ github.event.inputs.date_range }}" | rev | cut -d. -f1 | rev)
           echo "start_date=$start_date" >> $GITHUB_ENV
-          echo "date=$end_date" >> $GITHUB_ENV
+          echo "end_date=$end_date" >> $GITHUB_ENV
 
       - name: Run scripts and create issues
         env:
@@ -61,7 +59,7 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           JSON_FILE_PATH: ${{ github.event.inputs.json_file_path }}
           START_DATE: ${{ env.start_date }}
-          END_DATE: ${{ env.date }}
+          END_DATE: ${{ env.end_date }}
           GITHUB_ACTIONS: ${{ env.GITHUB_ACTIONS }}
         run: |
           # Determine list of JSON files to process
