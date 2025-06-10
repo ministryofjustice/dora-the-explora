@@ -44,6 +44,14 @@ jobs:
       run: |
         echo "start_date=$(date -u +%Y-%m-%d --date='7 days ago')" >> $GITHUB_ENV
 
+    - name: Parse date_range input
+      if: github.event.inputs.date_range != ''
+      run: |
+        start_date=$(echo "${{ github.event.inputs.date_range }}" | cut -d. -f1)
+        end_date=$(echo "${{ github.event.inputs.date_range }}" | rev | cut -d. -f1 | rev)
+        echo "start_date=$start_date" >> $GITHUB_ENV
+        echo "date=$end_date" >> $GITHUB_ENV
+
     - name: Run scripts and create issues
       env:
         ACCESS_TOKEN: ${{ secrets.DATA_PLATFORM_ROBOT_PAT }}
