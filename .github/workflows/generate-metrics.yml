@@ -11,9 +11,11 @@ on:
         required: false
   schedule:
     - cron: '0 8 * * 0' # At 08:00 on Sunday
+
 concurrency:
   group: generate-metrics
   cancel-in-progress: false
+
 permissions: {}
 
 jobs:
@@ -24,53 +26,65 @@ jobs:
       pull-requests: read
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5.6.0
+      - name: Set up Python
+        uses: actions/setup-python@v5.6.0
 
-    - name: Install dependencies
-      run: pip install -r requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-    - name: Get current date
-      if: github.event.inputs.date_range == ''
-      id: date
-      run: echo "date=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
+      - name: Get current end_date
+        if: github.event.inputs.date_range == ''
+        run: echo "end_date=$(date -u +%Y-%m-%d)" >> $GITHUB_ENV
 
-    - name: Calculate date range for the last 7 days
-      if: github.event.inputs.date_range == ''
-      id: last-7-days
-      run: |
-        echo "start_date=$(date -u +%Y-%m-%d --date='7 days ago')" >> $GITHUB_ENV
+      - name: Calculate start_date (7 days ago)
+        if: github.event.inputs.date_range == ''
+        run: |
+          echo "start_date=$(date -u +%Y-%m-%d --date='7 days ago')" >> $GITHUB_ENV
 
-    - name: Parse date_range input
-      if: github.event.inputs.date_range != ''
-      run: |
-        start_date=$(echo "${{ github.event.inputs.date_range }}" | cut -d. -f1)
-        end_date=$(echo "${{ github.event.inputs.date_range }}" | rev | cut -d. -f1 | rev)
-        echo "start_date=$start_date" >> $GITHUB_ENV
-        echo "date=$end_date" >> $GITHUB_ENV
+      - name: Parse date_range input
+        if: github.event.inputs.date_range != ''
+        run: |
+          start_date=$(echo "${{ github.event.inputs.date_range }}" | cut -d. -f1)
+          end_date=$(echo "${{ github.event.inputs.date_range }}" | rev | cut -d. -f1 | rev)
+          echo "start_date=$start_date" >> $GITHUB_ENV
+          echo "end_date=$end_date" >> $GITHUB_ENV
 
-    - name: Run scripts and create issues
-      env:
-        ACCESS_TOKEN: ${{ secrets.DATA_PLATFORM_ROBOT_PAT }}
-        GH_TOKEN: ${{ github.token }}
-        GITHUB_EVENT_NAME: ${{ github.event_name }}
-      run: |
-        for json_file in *.json; do
-          name=$(basename "$json_file" .json)
-          issue_title="📊 DORA Metrics for ${{ env.start_date }}..${{ env.date }} for $name"
-          issue_body=""
-
-          for script in cfr.py df.py ltfc.py mttr.py; do
-            python $script $json_file "${{ env.start_date }}..${{ env.date }}"
-            output=$(cat output.log)
-            rm output.log
-            metric=$(basename "$script" .py | tr '[:lower:]' '[:upper:]')
-            issue_body+="$output"
-          done
-          if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
-            gh issue create --title "$issue_title" --body "$issue_body"
+      - name: Run scripts and create issues
+        env:
+          ACCESS_TOKEN: ${{ secrets.DATA_PLATFORM_ROBOT_PAT }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          JSON_FILE_PATH: ${{ github.event.inputs.json_file_path }}
+          START_DATE: ${{ env.start_date }}
+          END_DATE: ${{ env.end_date }}
+          GITHUB_ACTIONS: ${{ env.GITHUB_ACTIONS }}
+        run: |
+          # Determine list of JSON files to process
+          if [ -n "$JSON_FILE_PATH" ]; then
+            json_files=("$JSON_FILE_PATH")
+          else
+            json_files=(*.json)
           fi
-        done
+
+          for json_file in "${json_files[@]}"; do
+            name=$(basename "$json_file" .json)
+            issue_title="📊 DORA Metrics for $START_DATE..$END_DATE for $name"
+            issue_body=""
+
+            for script in cfr.py df.py ltfc.py mttr.py; do
+              python "$script" "$json_file" "$START_DATE..$END_DATE"
+              output=$(cat output.log)
+              rm output.log
+              metric=$(basename "$script" .py | tr '[:lower:]' '[:upper:]')
+              issue_body+="$output"
+            done
+
+            if [ "$GITHUB_ACTIONS" == "true" ]; then
+              gh issue create --title "$issue_title" --body "$issue_body"
+            else
+              echo "Skipping issue creation because running outside GitHub Actions."
+            fi
+          done
