@@ -4,13 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       date_range:
-        description: 'Date range for metrics (format: YYYY-MM-DD..YYYY-MM-DD)'
+        description: "Date range for metrics (format: YYYY-MM-DD..YYYY-MM-DD)"
         required: false
       json_file_path:
-        description: 'Path to the JSON file with repository names'
+        description: "Path to the JSON file with repository names"
         required: false
+  push:
+    branches:
+      - feature/github-app-auth
   schedule:
-    - cron: '0 8 * * 0' # At 08:00 on Sunday
+    - cron: "0 8 * * 0" # At 08:00 on Sunday
 
 concurrency:
   group: generate-metrics
@@ -52,10 +55,19 @@ jobs:
           echo "start_date=$start_date" >> $GITHUB_ENV
           echo "end_date=$end_date" >> $GITHUB_ENV
 
+      - name: Create GitHub App token
+        id: app
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        with:
+          app-id: ${{ secrets.MP_APP_ID }}
+          private-key: ${{ secrets.MP_GITHUB_APP_PRIVATE_KEY }}
+          owner: "ministryofjustice"
+          repositories: "modernisation-platform,modernisation-platform-ami-builds,modernisation-platform-cp-network-test,modernisation-platform-github-oidc-provider,modernisation-platform-github-oidc-role,modernisation-platform-instance-scheduler,modernisation-platform-terraform-aws-vm-import,modernisation-platform-terraform-baselines,modernisation-platform-terraform-bastion-linux,modernisation-platform-terraform-cross-account-access,modernisation-platform-terraform-dns-certificates,modernisation-platform-terraform-ec2-autoscaling-group,modernisation-platform-terraform-ec2-instance,modernisation-platform-terraform-ecs-cluster,modernisation-platform-terraform-environments,modernisation-platform-terraform-iam-superadmins,modernisation-platform-terraform-lambda-function,modernisation-platform-terraform-loadbalancer,modernisation-platform-terraform-member-vpc,modernisation-platform-terraform-pagerduty-integration,modernisation-platform-terraform-s3-bucket,modernisation-platform-terraform-s3-bucket-replication-role,modernisation-platform-terraform-ssm-patching"
+
       - name: Run scripts and create issues
         env:
-          ACCESS_TOKEN: ${{ secrets.DATA_PLATFORM_ROBOT_PAT }}
-          GH_TOKEN: ${{ github.token }}
+          ACCESS_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           JSON_FILE_PATH: ${{ github.event.inputs.json_file_path }}
           START_DATE: ${{ env.start_date }}
