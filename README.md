@@ -4,7 +4,7 @@
 
 These scripts are an attempt to calculate [DORA METRICS](https://cloud.google.com/blog/products/devops-sre/using-the-four-keys-to-measure-your-devops-performance) using information retrieved via GitHub API.
 
-The repo contains five python scripts, `cfr.py`, `df.py`, `ltfc.py` and `mttr.py` compute each of the four metrics while `github_apy.py` is a library module containing the calls to the API.
+The repo contains four metric scripts -- `cfr.py`, `df.py`, `ltfc.py` and `mttr.py` -- which compute each of the four metrics. `github_api.py` is a library module containing the calls to the API, and `metrics_common.py` holds the shared setup (token, argument parsing, config loading, logging) used by all four scripts.
 
 ## How are the metrics calculated?
 
@@ -22,3 +22,32 @@ Each script takes as a parameter a `json` file which contains a list of reposito
 To execute each script, run `python3 script_name.py team.json 2023-04-01..2023-05-01`
 
 Note: The date range will run from the beginning of the day eg `2023-04-01 00:00:00` to `2023-05-01 00:00:00`.
+
+These scripts require Python 3.10 or newer (the pinned `requests` dependency drops support for older versions). Install the runtime dependency with `pip install -r requirements.txt`.
+
+## The team manifest
+
+Each script takes a JSON manifest describing the team. The file name (minus `.json`) is used as the team name in the output. The schema is:
+
+```json
+{
+  "repos": ["repo-a", "repo-b"],
+  "excluded_workflows": ["Workflow name to ignore"]
+}
+```
+
+* `repos` -- the list of repositories owned by the team (all under the `ministryofjustice` org).
+* `excluded_workflows` -- workflow *names* to exclude from the metrics (e.g. scheduled security scans that are not deployments). Optional; defaults to an empty list.
+
+See `modernisation-platform.json` for a worked example.
+
+## Development
+
+Install the dev dependencies and run the test suite:
+
+```
+pip install -r requirements-dev.txt
+pytest
+```
+
+The tests exercise the pure `compute_*` functions and the API pagination logic with mocked responses, so they run without a GitHub token or network access. The test suite also runs in CI on every push and pull request (`.github/workflows/test.yml`).
