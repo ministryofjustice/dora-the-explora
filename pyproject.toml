@@ -1,0 +1,45 @@
+[project]
+name = "dora-the-explora"
+version = "0.1.0"
+description = "Calculate DORA metrics for MoJ teams and platforms from the GitHub API"
+requires-python = ">=3.10"
+dependencies = [
+    "requests==2.34.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.16.1",
+    "bandit==1.9.4",
+]
+
+[tool.ruff]
+line-length = 100
+# Local-only exploratory scripts that are not part of the committed tooling.
+extend-exclude = [
+    "analyse.py", "analyse_dose.py", "branch_lifetime.py", "cohort_enum.py",
+    "collect.py", "dora_timeseries.py", "dose_response.py", "probe.py",
+    "repo_usage_dora.py", "select_cohort.py", "verdict.py",
+]
+
+[tool.ruff.lint]
+# Real-bug and common-gotcha rules; the highly opinionated families (docstrings,
+# type-annotation coverage, print/assert bans) are intentionally left off for
+# these operational scripts.
+select = ["F", "E", "W", "B", "SIM", "UP"]
+
+[tool.pytest.ini_options]
+# The metric modules live at the repo root; make them importable by the tests.
+pythonpath = ["."]
+
+[tool.bandit]
+# Tests (asserts) and local-only exploratory scripts are not part of the
+# committed deliverable; exclude both so a recursive scan is clean.
+exclude_dirs = [
+    "tests", ".venv", "data",
+    "analyse.py", "analyse_dose.py", "branch_lifetime.py", "cohort_enum.py",
+    "collect.py", "dora_timeseries.py", "dose_response.py", "probe.py",
+    "repo_usage_dora.py", "select_cohort.py", "verdict.py",
+]
+skips = ["B101"]  # asserts are expected in tests
