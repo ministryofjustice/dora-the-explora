@@ -29,11 +29,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: '3.13'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: uv sync --no-dev --locked
 
       - name: Get current end_date
         if: github.event.inputs.date_range == ''
@@ -75,11 +77,11 @@ jobs:
             issue_body=""
 
             for script in cfr.py df.py ltfc.py mttr.py; do
-              python "$script" "$json_file" "$START_DATE..$END_DATE"
+              uv run python "$script" "$json_file" "$START_DATE..$END_DATE"
               output=$(cat output.log)
               rm output.log
-              metric=$(basename "$script" .py | tr '[:lower:]' '[:upper:]')
-              issue_body+="$output"
+              # Each script already labels its own output; separate metrics with a blank line.
+              issue_body+="$output"$'\n'
             done
 
             if [ "$GITHUB_ACTIONS" == "true" ]; then
