@@ -1,0 +1,66 @@
+name: CP DORA Metrics
+
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Earliest deployment date to consider (YYYY-MM-DD)'
+        required: false
+      repos:
+        description: 'Comma-separated repo names (default: enumerate CP tenants)'
+        required: false
+  schedule:
+    - cron: '0 8 * * 3' # At 08:00 on Wednesday (~48h after the MPE run on Monday)
+
+concurrency:
+  group: cp-dora
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  cp_dora:
+    permissions:
+      issues: write
+      contents: read
+    runs-on: ubuntu-latest
+    # CP is ~150 repos of deployment/status/commit calls paced under the 5000/hr
+    # core limit (~3h). Cap generously so a pathological run cannot hang forever.
+    timeout-minutes: 300
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Default the since date (90 days ago) when not supplied
+        if: github.event.inputs.since == ''
+        run: echo "since=$(date -u +%Y-%m-%d --date='90 days ago')" >> $GITHUB_ENV
+
+      - name: Use the supplied since date
+        if: github.event.inputs.since != ''
+        run: echo "since=${{ github.event.inputs.since }}" >> $GITHUB_ENV
+
+      - name: Run CP DORA and create an issue
+        env:
+          ACCESS_TOKEN: ${{ secrets.DATA_PLATFORM_ROBOT_PAT }}
+          GH_TOKEN: ${{ github.token }}
+          SINCE: ${{ env.since }}
+          REPOS: ${{ github.event.inputs.repos }}
+        run: |
+          args=(--since "$SINCE")
+          if [ -n "$REPOS" ]; then
+            args+=(--repos "$REPOS")
+          fi
+          python cp_dora.py "${args[@]}"
+          body=$(cat output.log)
+          rm -f output.log
+          gh issue create \
+            --title "📊 CP DORA Metrics (deployments since $SINCE)" \
+            --body "$body"
