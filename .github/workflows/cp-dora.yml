@@ -23,6 +23,7 @@ jobs:
     permissions:
       issues: write
       contents: read
+      id-token: write # required for the Octo STS OIDC exchange
     runs-on: ubuntu-latest
     # CP is ~150 repos of deployment/status/commit calls paced under the 5000/hr
     # core limit (~3h). Cap generously so a pathological run cannot hang forever.
@@ -30,6 +31,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Obtain Octo STS token
+        # Mints a short-lived, org-wide read token (replacing a long-lived PAT)
+        # to read code search, contents and deployments across ~150 Cloud
+        # Platform tenant repos. Requires the org-level trust policy in
+        # ministryofjustice/.github (.github/chainguard/ministryofjustice-dora-the-explora.sts.yaml).
+        id: octo_sts
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        with:
+          scope: ministryofjustice
+          identity: ministryofjustice-dora-the-explora
 
       - name: Set up uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -49,7 +61,7 @@ jobs:
 
       - name: Run CP DORA and create an issue
         env:
-          ACCESS_TOKEN: ${{ secrets.DATA_PLATFORM_ROBOT_PAT }}
+          ACCESS_TOKEN: ${{ steps.octo_sts.outputs.token }}
           GH_TOKEN: ${{ github.token }}
           SINCE: ${{ env.since }}
           REPOS: ${{ github.event.inputs.repos }}
