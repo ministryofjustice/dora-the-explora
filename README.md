@@ -23,7 +23,7 @@ To execute each script, run `python3 script_name.py team.json 2023-04-01..2023-0
 
 Note: The date range will run from the beginning of the day eg `2023-04-01 00:00:00` to `2023-05-01 00:00:00`.
 
-These scripts require Python 3.10 or newer (the pinned `requests` dependency drops support for older versions). Install the runtime dependency with `pip install -r requirements.txt`.
+These scripts require Python 3.10 or newer (the pinned `requests` dependency drops support for older versions). Dependencies are managed with [uv](https://docs.astral.sh/uv/); install the runtime dependency with `uv sync --no-dev`.
 
 ## The team manifest
 
@@ -46,8 +46,8 @@ See `modernisation-platform.json` for a worked example.
 Install the dev dependencies and run the test suite:
 
 ```
-pip install -r requirements-dev.txt
-pytest
+uv sync --group dev
+uv run pytest
 ```
 
-The tests exercise the pure `compute_*` functions and the API pagination logic with mocked responses, so they run without a GitHub token or network access. The test suite also runs in CI on every push and pull request (`.github/workflows/test.yml`).
+The tests exercise the pure `compute_*` functions and the API pagination logic with mocked responses, so they run without a GitHub token or network access. The test suite runs in CI on every push and pull request (`.github/workflows/test.yml`), and linting plus security static analysis (ruff and bandit) run via `.github/workflows/static-analysis.yml`. Run them locally with `uv run ruff check .` and `uv run bandit -r . -c pyproject.toml`.
