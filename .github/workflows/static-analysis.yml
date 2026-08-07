@@ -20,13 +20,21 @@ jobs:
         uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
 
   sast:
+    # SARIF upload is not permitted on pull requests from forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
+    permissions:
+      # Required for SARIF upload to GitHub code scanning.
+      security-events: write
+      # Required by the Bandit action for private repositories.
+      actions: read
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Security static analysis (bandit)
         # Official PyCQA action; config (exclusions, skips) lives in pyproject.toml.
-        uses: PyCQA/bandit-action@67a458d90fa11fb1463e91e7f4c8f068b5863c7f # v1.0.1
+        uses: PyCQA/bandit-action@5d813b43270554747248f9a8fb3d766c958194dc # main (includes codeql upload-sarif v4)
         with:
           configfile: pyproject.toml
