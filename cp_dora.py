@@ -274,34 +274,66 @@ def main():
         except Exception as e:
             print(f"  skip {repo}: {e}", file=sys.stderr)
 
-    with_signal = [r for r in results if r.get("signal")]
-    no_signal = [r for r in results if not r.get("signal")]
-
-    header = (f"DORA metrics for Cloud Platform tenants (production deployments "
-              f"since {args.since})")
-    rows = [header, "",
-            f"repos checked: {len(results)}   with GitHub deployment signal: "
-            f"{len(with_signal)}   without (Concourse/kubectl etc): {len(no_signal)}",
-            "",
-            f"{'repository':<48}{'deploys':>8}{'DF/day':>8}"
-            f"{'leadT':>8}{'CFR':>7}{'MTTR':>9}",
-            "-" * 88]
-    for r in sorted(with_signal, key=lambda r: -r["deploys"]):
-        flag = "" if r["deploys"] >= MIN_DEPLOYS else "  (low n)"
-        rows.append(
-            f"{r['repo']:<48}{r['deploys']:>8}{r['df_per_day']:>8.2f}"
-            f"{_fmt(r['lead_time_median_h'],'h'):>8}"
-            f"{_fmt(r['cfr_pct'],'%'):>7}{_fmt(r['mttr_median_h'],'h'):>9}{flag}")
-    if no_signal:
-        rows.append("")
-        rows.append(f"No GitHub deployment signal ({len(no_signal)} repos, likely "
-                    f"Concourse/kubectl): "
-                    + ", ".join(r["repo"] for r in no_signal[:40])
-                    + (" ..." if len(no_signal) > 40 else ""))
-
-    report = "\n".join(rows)
+    report = format_report(results, args.since)
     print(report)
     logger.info(report)
+
+
+def _table(rows):
+    """Render a Markdown table of repo result dicts (deploys-desc)."""
+    out = ["| Repository | Deploys | DF/day | Lead time | CFR | MTTR |",
+           "| --- | --: | --: | --: | --: | --: |"]
+    for r in sorted(rows, key=lambda r: -r["deploys"]):
+        out.append(
+            f"| {r['repo']} | {r['deploys']} | {r['df_per_day']:.2f} | "
+            f"{_fmt(r['lead_time_median_h'], 'h')} | "
+            f"{_fmt(r['cfr_pct'], '%')} | {_fmt(r['mttr_median_h'], 'h')} |")
+    return "\n".join(out)
+
+
+def format_report(results, since):
+    """Build a Markdown report: summary, active repos, collapsed long tail."""
+    with_signal = [r for r in results if r.get("signal")]
+    no_signal = [r for r in results if not r.get("signal")]
+    active = [r for r in with_signal if r["deploys"] >= MIN_DEPLOYS]
+    low_n = [r for r in with_signal if r["deploys"] < MIN_DEPLOYS]
+
+    total_deploys = sum(r["deploys"] for r in with_signal)
+    lead_times = [r["lead_time_median_h"] for r in active
+                  if r["lead_time_median_h"] is not None]
+    cfrs = [r["cfr_pct"] for r in active if r["cfr_pct"] is not None]
+
+    lines = [
+        "# DORA metrics for Cloud Platform tenants",
+        f"Production deployments since **{since}**.",
+        "",
+        f"- **{len(results)}** tenant repos checked: **{len(with_signal)}** emit "
+        f"GitHub Deployments, **{len(no_signal)}** do not (Concourse/kubectl etc, "
+        f"collapsed below).",
+        f"- **{len(active)}** with ≥{MIN_DEPLOYS} production deployments (shown "
+        f"below); {len(low_n)} with fewer.",
+        f"- **{total_deploys}** production deployments across the cohort.",
+    ]
+    if lead_times:
+        lines.append(f"- Median lead time across active repos: "
+                     f"**{statistics.median(lead_times):.1f}h**.")
+    if cfrs:
+        lines.append(f"- Median change failure rate across active repos: "
+                     f"**{statistics.median(cfrs):.0f}%**.")
+    lines += ["", "## Active repositories", "", _table(active)]
+
+    if low_n:
+        lines += ["",
+                  f"<details><summary>{len(low_n)} repos with 1–"
+                  f"{MIN_DEPLOYS - 1} deployments</summary>", "",
+                  _table(low_n), "", "</details>"]
+    if no_signal:
+        names = ", ".join(sorted(r["repo"] for r in no_signal))
+        lines += ["",
+                  f"<details><summary>{len(no_signal)} repos with no GitHub "
+                  f"deployment signal (likely Concourse/kubectl)</summary>", "",
+                  names, "", "</details>"]
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
