@@ -210,22 +210,63 @@ def main():
         except Exception as e:
             print(f"  skip {app}: {e}", file=sys.stderr)
 
-    header = (f"DORA metrics for MPE applications (production deployments since "
-              f"{args.since})")
-    rows = [header, "",
-            f"{'application':<44}{'deploys':>8}{'DF/day':>8}"
-            f"{'leadT':>8}{'CFR':>7}{'MTTR':>9}",
-            "-" * 84]
-    for r in sorted(results, key=lambda r: -r["deploys"]):
-        flag = "" if r["deploys"] >= MIN_DEPLOYS else "  (low n)"
-        rows.append(
-            f"{r['app']:<44}{r['deploys']:>8}{r['df_per_day']:>8.2f}"
-            f"{_fmt(r['lead_time_median_h'],'h'):>8}"
-            f"{_fmt(r['cfr_pct'],'%'):>7}{_fmt(r['mttr_median_h'],'h'):>9}{flag}")
-
-    report = "\n".join(rows)
+    report = format_report(results, args.since)
     print(report)
     logger.info(report)
+
+
+def _table(rows):
+    """Render a Markdown table of app result dicts (deploys-desc)."""
+    out = ["| Application | Deploys | DF/day | Lead time | CFR | MTTR |",
+           "| --- | --: | --: | --: | --: | --: |"]
+    for r in sorted(rows, key=lambda r: -r["deploys"]):
+        out.append(
+            f"| {r['app']} | {r['deploys']} | {r['df_per_day']:.2f} | "
+            f"{_fmt(r['lead_time_median_h'], 'h')} | "
+            f"{_fmt(r['cfr_pct'], '%')} | {_fmt(r['mttr_median_h'], 'h')} |")
+    return "\n".join(out)
+
+
+def format_report(results, since):
+    """Build a Markdown report: summary, active apps, collapsed long tail."""
+    active = [r for r in results if r["deploys"] >= MIN_DEPLOYS]
+    low_n = [r for r in results if 0 < r["deploys"] < MIN_DEPLOYS]
+    no_deploys = [r for r in results if r["deploys"] == 0]
+
+    total_deploys = sum(r["deploys"] for r in results)
+    lead_times = [r["lead_time_median_h"] for r in active
+                  if r["lead_time_median_h"] is not None]
+    cfrs = [r["cfr_pct"] for r in active if r["cfr_pct"] is not None]
+
+    lines = [
+        "# DORA metrics for MPE applications",
+        f"Production deployments since **{since}**.",
+        "",
+        f"- **{len(active)}** applications with ≥{MIN_DEPLOYS} production "
+        f"deployments (shown below); {len(low_n)} with fewer, {len(no_deploys)} "
+        f"with none (collapsed).",
+        f"- **{total_deploys}** production deployments across the cohort.",
+    ]
+    if lead_times:
+        lines.append(f"- Median lead time across active apps: "
+                     f"**{statistics.median(lead_times):.1f}h**.")
+    if cfrs:
+        lines.append(f"- Median change failure rate across active apps: "
+                     f"**{statistics.median(cfrs):.0f}%**.")
+    lines += ["", "## Active applications", "", _table(active)]
+
+    if low_n:
+        lines += ["",
+                  f"<details><summary>{len(low_n)} apps with 1–"
+                  f"{MIN_DEPLOYS - 1} deployments</summary>", "",
+                  _table(low_n), "", "</details>"]
+    if no_deploys:
+        names = ", ".join(sorted(r["app"] for r in no_deploys))
+        lines += ["",
+                  f"<details><summary>{len(no_deploys)} apps with no "
+                  f"production deployments in range</summary>", "",
+                  names, "", "</details>"]
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
