@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Lint (ruff)
         # Official Astral action; runs `ruff check` and reads config from pyproject.toml.
@@ -32,9 +34,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Security static analysis (bandit)
         # Official PyCQA action; config (exclusions, skips) lives in pyproject.toml.
-        uses: PyCQA/bandit-action@c55d0a212edcc03ce6352ddc73e1e4c6c63b94b5 # main (includes codeql upload-sarif v4)
+        uses: PyCQA/bandit-action@45b133a48a8e5a8c8ac42b4604ba67d465ec14ba # main (includes codeql upload-sarif v4)
         with:
           configfile: pyproject.toml
