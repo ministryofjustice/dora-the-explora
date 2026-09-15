@@ -39,6 +39,6 @@ jobs:
 
       - name: Security static analysis (bandit)
         # Official PyCQA action; config (exclusions, skips) lives in pyproject.toml.
-        uses: PyCQA/bandit-action@45b133a48a8e5a8c8ac42b4604ba67d465ec14ba # main (includes codeql upload-sarif v4)
+        uses: PyCQA/bandit-action@793fbf7ec00a6eb0be80748ef51b153ddad4605b # main (includes codeql upload-sarif v4)
         with:
           configfile: pyproject.toml
