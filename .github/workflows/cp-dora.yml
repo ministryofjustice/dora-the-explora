@@ -1,6 +1,7 @@
+---
 name: CP DORA Metrics
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       since:
@@ -53,11 +54,11 @@ jobs:
 
       - name: Default the since date (90 days ago) when not supplied
         if: github.event.inputs.since == ''
-        run: echo "since=$(date -u +%Y-%m-%d --date='90 days ago')" >> $GITHUB_ENV
+        run: echo "since=$(date -u +%Y-%m-%d --date='90 days ago')" >> "$GITHUB_ENV"
 
       - name: Use the supplied since date
         if: github.event.inputs.since != ''
-        run: echo "since=${{ github.event.inputs.since }}" >> $GITHUB_ENV
+        run: echo "since=${{ github.event.inputs.since }}" >> "$GITHUB_ENV"
 
       - name: Run CP DORA and create an issue
         env:

@@ -1,6 +1,7 @@
+---
 name: MPE DORA Metrics
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       since:
@@ -29,6 +30,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Obtain Octo STS token
         # Mints a short-lived, org-wide read token (replacing a long-lived PAT)
@@ -51,11 +54,11 @@ jobs:
 
       - name: Default the since date (90 days ago) when not supplied
         if: github.event.inputs.since == ''
-        run: echo "since=$(date -u +%Y-%m-%d --date='90 days ago')" >> $GITHUB_ENV
+        run: echo "since=$(date -u +%Y-%m-%d --date='90 days ago')" >> "$GITHUB_ENV"
 
       - name: Use the supplied since date
         if: github.event.inputs.since != ''
-        run: echo "since=${{ github.event.inputs.since }}" >> $GITHUB_ENV
+        run: echo "since=${{ github.event.inputs.since }}" >> "$GITHUB_ENV"
 
       - name: Run MPE DORA and create an issue
         env:
