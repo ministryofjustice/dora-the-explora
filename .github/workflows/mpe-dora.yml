@@ -5,13 +5,13 @@ name: MPE DORA Metrics
   workflow_dispatch:
     inputs:
       since:
-        description: 'Earliest deployment date to consider (YYYY-MM-DD)'
+        description: "Earliest deployment date to consider (YYYY-MM-DD)"
         required: false
       apps:
-        description: 'Comma-separated app names (default: all MPE apps)'
+        description: "Comma-separated app names (default: all MPE apps)"
         required: false
   schedule:
-    - cron: '0 8 * * 1' # At 08:00 on Monday
+    - cron: "0 8 * * 1" # At 08:00 on Monday
 
 concurrency:
   group: mpe-dora
@@ -24,7 +24,7 @@ jobs:
     permissions:
       issues: write
       contents: read
-      id-token: write # required for the Octo STS OIDC exchange
+      id-token: write # Required for the Octo STS OIDC exchange
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -47,33 +47,50 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
       - name: Install dependencies
         run: uv sync --no-dev --locked
 
-      - name: Default the since date (90 days ago) when not supplied
-        if: github.event.inputs.since == ''
-        run: echo "since=$(date -u +%Y-%m-%d --date='90 days ago')" >> "$GITHUB_ENV"
+      - name: Set since date
+        env:
+          INPUT_SINCE: ${{ inputs.since }}
+        run: |
+          if [ -n "$INPUT_SINCE" ]; then
+            if [[ ! "$INPUT_SINCE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "ERROR: since must use YYYY-MM-DD format" >&2
+              exit 1
+            fi
 
-      - name: Use the supplied since date
-        if: github.event.inputs.since != ''
-        run: echo "since=${{ github.event.inputs.since }}" >> "$GITHUB_ENV"
+            if ! date -u --date="$INPUT_SINCE" '+%Y-%m-%d' >/dev/null 2>&1; then
+              echo "ERROR: since is not a valid date: $INPUT_SINCE" >&2
+              exit 1
+            fi
+
+            since="$INPUT_SINCE"
+          else
+            since=$(date -u +%Y-%m-%d --date='90 days ago')
+          fi
+
+          echo "SINCE=$since" >> "$GITHUB_ENV"
 
       - name: Run MPE DORA and create an issue
         env:
           ACCESS_TOKEN: ${{ steps.octo_sts.outputs.token }}
           GH_TOKEN: ${{ github.token }}
-          SINCE: ${{ env.since }}
-          APPS: ${{ github.event.inputs.apps }}
+          APPS: ${{ inputs.apps }}
         run: |
           args=(--since "$SINCE")
+
           if [ -n "$APPS" ]; then
             args+=(--apps "$APPS")
           fi
+
           uv run python mpe_dora.py "${args[@]}"
-          body=$(cat output.log)
+
+          body=$(<output.log)
           rm -f output.log
+
           gh issue create \
             --title "📊 MPE DORA Metrics (deployments since $SINCE)" \
             --body "$body"

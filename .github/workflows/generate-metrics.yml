@@ -5,13 +5,13 @@ name: DORA Metrics Workflow
   workflow_dispatch:
     inputs:
       date_range:
-        description: 'Date range for metrics (format: YYYY-MM-DD..YYYY-MM-DD)'
+        description: "Date range for metrics (format: YYYY-MM-DD..YYYY-MM-DD)"
         required: false
       json_file_path:
-        description: 'Path to the JSON file with repository names'
+        description: "Path to the JSON file with repository names"
         required: false
   schedule:
-    - cron: '0 8 * * 0' # At 08:00 on Sunday
+    - cron: "0 8 * * 0" # At 08:00 on Sunday
 
 concurrency:
   group: generate-metrics
@@ -23,9 +23,9 @@ jobs:
   run_metrics:
     permissions:
       issues: write
-      contents: write
+      contents: read
       pull-requests: read
-      id-token: write # required for the Octo STS OIDC exchange
+      id-token: write # Required for the Octo STS OIDC exchange
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -47,37 +47,52 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
       - name: Install dependencies
         run: uv sync --no-dev --locked
 
-      - name: Get current end_date
-        if: github.event.inputs.date_range == ''
-        run: echo "end_date=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
-
-      - name: Calculate start_date (7 days ago)
-        if: github.event.inputs.date_range == ''
+      - name: Set date range
+        env:
+          DATE_RANGE: ${{ inputs.date_range }}
         run: |
-          echo "start_date=$(date -u +%Y-%m-%d --date='7 days ago')" >> "$GITHUB_ENV"
+          if [ -n "$DATE_RANGE" ]; then
+            if [[ ! "$DATE_RANGE" =~ ^([0-9]{4}-[0-9]{2}-[0-9]{2})\.\.([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
+              echo "ERROR: date_range must use YYYY-MM-DD..YYYY-MM-DD format" >&2
+              exit 1
+            fi
 
-      - name: Parse date_range input
-        if: github.event.inputs.date_range != ''
-        run: |
-          start_date=$(echo "${{ github.event.inputs.date_range }}" | cut -d. -f1)
-          end_date=$(echo "${{ github.event.inputs.date_range }}" | rev | cut -d. -f1 | rev)
-          echo "start_date=$start_date" >> "$GITHUB_ENV"
-          echo "end_date=$end_date" >> "$GITHUB_ENV"
+            start_date="${BASH_REMATCH[1]}"
+            end_date="${BASH_REMATCH[2]}"
+
+            if ! date -u --date="$start_date" '+%Y-%m-%d' >/dev/null 2>&1; then
+              echo "ERROR: Invalid start date: $start_date" >&2
+              exit 1
+            fi
+
+            if ! date -u --date="$end_date" '+%Y-%m-%d' >/dev/null 2>&1; then
+              echo "ERROR: Invalid end date: $end_date" >&2
+              exit 1
+            fi
+
+            if [[ "$start_date" > "$end_date" ]]; then
+              echo "ERROR: Start date must not be later than end date" >&2
+              exit 1
+            fi
+          else
+            start_date=$(date -u +%Y-%m-%d --date='7 days ago')
+            end_date=$(date -u +%Y-%m-%d)
+          fi
+
+          echo "START_DATE=$start_date" >> "$GITHUB_ENV"
+          echo "END_DATE=$end_date" >> "$GITHUB_ENV"
 
       - name: Run scripts and create issues
         env:
           ACCESS_TOKEN: ${{ steps.octo_sts.outputs.token }}
           GH_TOKEN: ${{ github.token }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
-          JSON_FILE_PATH: ${{ github.event.inputs.json_file_path }}
-          START_DATE: ${{ env.start_date }}
-          END_DATE: ${{ env.end_date }}
-          GITHUB_ACTIONS: ${{ env.GITHUB_ACTIONS }}
+          JSON_FILE_PATH: ${{ inputs.json_file_path }}
         run: |
           # Determine list of JSON files to process
           if [ -n "$JSON_FILE_PATH" ]; then
@@ -93,13 +108,13 @@ jobs:
 
             for script in cfr.py df.py ltfc.py mttr.py; do
               uv run python "$script" "$json_file" "$START_DATE..$END_DATE"
-              output=$(cat output.log)
-              rm output.log
+              output=$(<output.log)
+              rm -f output.log
               # Each script already labels its own output; separate metrics with a blank line.
               issue_body+="$output"$'\n'
             done
 
-            if [ "$GITHUB_ACTIONS" == "true" ]; then
+            if [ "$GITHUB_ACTIONS" = "true" ]; then
               gh issue create --title "$issue_title" --body "$issue_body"
             else
               echo "Skipping issue creation because running outside GitHub Actions."
