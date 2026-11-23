@@ -42,4 +42,5 @@ jobs:
         # Official PyCQA action; config (exclusions, skips) lives in pyproject.toml.
         uses: PyCQA/bandit-action@8970b6163696044b1b81bd86df0d01a7695e65df # main (includes codeql upload-sarif v4)
         with:
+          python-version: '3.13'
           configfile: pyproject.toml
