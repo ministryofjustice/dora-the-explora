@@ -21,6 +21,6 @@ jobs:
       issues: write
       pull-requests: write
       security-events: write
-    uses: ministryofjustice/modernisation-platform-github-actions/.github/workflows/reusable-code-quality.yml@75a43f2d01e325fede1d7ab3d9bc7cc507fdb33d # v6.5.0
+    uses: ministryofjustice/modernisation-platform-github-actions/.github/workflows/reusable-code-quality.yml@e871a076bef153a7d88291992f745cff81b54443 # v6.5.1
     with:
       validate_all_codebase: ${{ github.event_name != 'pull_request' && 'true' || 'false' }}
